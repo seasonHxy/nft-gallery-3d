@@ -23,7 +23,11 @@ export async function GET(req: Request) {
   try {
     const nfts = await fetchAlchemyNfts(owner, 12);
     if (nfts.length === 0) {
-      return NextResponse.json({ source: "alchemy", nfts: MOCK_NFTS, reason: "owner has 0 nfts, showing mock" });
+      return NextResponse.json({
+        source: "mock",
+        reason: "no indexable NFTs for this owner",
+        nfts: MOCK_NFTS,
+      });
     }
     return NextResponse.json({ source: "alchemy", nfts });
   } catch (e) {

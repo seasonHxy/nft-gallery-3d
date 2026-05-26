@@ -54,18 +54,51 @@ export async function fetchAlchemyNfts(owner: string, limit = 12): Promise<NFT[]
   const network = process.env.ALCHEMY_NETWORK ?? "eth-mainnet";
   if (!key) throw new Error("ALCHEMY_API_KEY is not set");
 
+  // Over-fetch so we can survive items with missing images, but keep payload
+  // under Next's 2MB fetch-cache limit (pranksy-style mega-wallets hit it fast).
+  const fetchSize = Math.min(Math.max(limit * 2, 24), 30);
+
   const url = new URL(`https://${network}.g.alchemy.com/nft/v3/${key}/getNFTsForOwner`);
   url.searchParams.set("owner", owner);
   url.searchParams.set("withMetadata", "true");
-  url.searchParams.set("pageSize", String(Math.min(limit, 100)));
+  url.searchParams.set("pageSize", String(fetchSize));
 
-  const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      next: { revalidate: 60 },
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     throw new Error(`Alchemy ${res.status}: ${await res.text()}`);
   }
   const data = (await res.json()) as { ownedNfts?: AlchemyNft[] };
-  return (data.ownedNfts ?? [])
+
+  const valid = (data.ownedNfts ?? [])
     .map(toNft)
-    .filter((x): x is NFT => x !== null)
-    .slice(0, limit);
+    .filter((x): x is NFT => x !== null);
+
+  // De-duplicate by collection so 12 frames feel diverse instead of all the same collection
+  const seenCollections = new Map<string, number>();
+  const diverse: NFT[] = [];
+  const leftovers: NFT[] = [];
+  for (const nft of valid) {
+    const c = nft.collection ?? "Unknown";
+    const count = seenCollections.get(c) ?? 0;
+    if (count < 2) {
+      diverse.push(nft);
+      seenCollections.set(c, count + 1);
+    } else {
+      leftovers.push(nft);
+    }
+    if (diverse.length >= limit) break;
+  }
+  // Top up with leftovers if diversity gave us fewer than limit
+  const result = [...diverse, ...leftovers].slice(0, limit);
+  return result;
 }
