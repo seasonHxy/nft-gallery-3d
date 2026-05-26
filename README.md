@@ -2,8 +2,6 @@
 
 A cyberpunk 3D walkthrough gallery for NFTs. Built with **Next.js 14 + React Three Fiber + Alchemy NFT API**. Designed to deploy to **Vercel** in one click.
 
-![preview placeholder](public/preview.png)
-
 ## What this project does
 
 NEON VAULT turns any Ethereum-compatible wallet into a private 3D art gallery you can walk through in the browser. Drop in a wallet address (or `.eth` name later — ENS resolution is on the roadmap), and the app pulls up to 12 of that owner's NFTs via the **Alchemy NFT v3 API** and mounts them onto the walls of a procedurally generated **cyberpunk room** — dark panels, neon cornices, vertical light strips, a floating holographic centerpiece, drifting particles, scanlines, the full synthwave package.
